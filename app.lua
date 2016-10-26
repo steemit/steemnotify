@@ -2,7 +2,7 @@ require 'notifications'
 
 box.cfg {
     log_level = 5;
-    listen = '0.0.0.0:3313';
+    listen = '0.0.0.0:3301';
 }
 
 box.once('bootstrap', function()
