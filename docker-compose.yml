@@ -1,0 +1,22 @@
+version: '2'
+
+services:
+  datafeed:
+    image: datafeed
+    build:
+      context: .
+      dockerfile: Dockerfile-datafeed
+    links:
+      - datastore
+    environment:
+      - WS_CONNECTION  
+
+  datastore:
+    image: datastore
+    build:
+      context: .
+      dockerfile: Dockerfile-datastore
+    ports:
+      - "3301:3301"
+    volumes:
+      - ./data:/var/lib/tarantool

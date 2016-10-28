@@ -1,0 +1,5 @@
+FROM tarantool/tarantool:1.7
+
+COPY *.lua /opt/tarantool/
+
+CMD ["/usr/local/bin/tarantool", "/opt/tarantool/app.lua"]

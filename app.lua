@@ -1,8 +1,11 @@
 require 'notifications'
 
 box.cfg {
-    log_level = 5;
-    listen = '0.0.0.0:3301';
+    log_level = 5,
+    listen = '0.0.0.0:3301',
+    wal_dir    = "/var/lib/tarantool",
+    snap_dir   = "/var/lib/tarantool",
+    vinyl_dir = "/var/lib/tarantool",
 }
 
 box.once('bootstrap', function()
@@ -19,4 +22,4 @@ box.once('bootstrap', function()
     notifications:create_index('primary', {type = 'tree', parts = {1, 'STR'}})
 end)
 
-require('console').start()
+--require('console').start()
