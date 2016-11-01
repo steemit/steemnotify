@@ -8,14 +8,15 @@ NTYPES = {
   'total': 0,
   'feed': 1,
   'reward': 2,
-  'transfer': 3,
+  'send': 3,
   'mention': 4,
   'follow': 5,
   'vote': 6,
   'comment_reply': 7,
   'post_reply': 8,
-  'key_update': 9,
-  'message': 10
+  'account_update': 9,
+  'message': 10,
+  'receive': 11
 }
 
 tnt_server = tarantool.connect('datastore', 3301)
@@ -53,7 +54,6 @@ def addFollower(account_name, follower):
     global tnt_server
     global followers_space
     res = tnt_server.call('add_follower', account_name, follower)
-    print('addFollower ->', account_name, follower, res[0][0])
     if not res[0][0]:
         followers = [x['follower'] for x in _get_followers(account_name)]
         followers.append(follower)
@@ -79,6 +79,14 @@ def processOp(op_data):
             for follower in followers:
                 # print('----',follower, NTYPES['feed'])
                 tnt_server.call('notification_add', follower, NTYPES['feed'])
+    if op_type.startswith('transfer'):
+        if op['from'] != op['to']:
+            print(op_type, op['from'], op['to'])
+            tnt_server.call('notification_add', op['from'], NTYPES['send'])
+            tnt_server.call('notification_add', op['to'], NTYPES['receive'])
+    if op_type == 'account_update':
+        print(op_type, op['account'])
+        tnt_server.call('notification_add', op['account'], NTYPES['account_update'])
 
 
 last_block = 6231870
@@ -90,11 +98,13 @@ else:
     steem_space.insert(('last_block_id', last_block))
 
 for block in steem.block_stream(start=last_block, mode='irreversible'):
-    # print('-----')
+    #
     # print(json.dumps(block, indent=4))
     for t in block['transactions']:
         for op in t['operations']:
-            # print(op)
+            if op[0] not in ['comment', 'vote', 'custom_json', 'pow2', 'account_create', 'limit_order_create', 'limit_order_cancel', 'feed_publish', 'comment_options', 'account_witness_vote', 'account_update'] and not op[0].startswith('transfer'):
+                print('---------', op[0])
+                print(json.dumps(op[1], indent=4))
             processOp(op)
     last_block += 1
     steem_space.update('last_block_id', [('=', 1, last_block)])

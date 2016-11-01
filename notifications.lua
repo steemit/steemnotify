@@ -4,14 +4,19 @@ require 'table_utils'
 --   'total': 0,
 --   'feed': 1,
 --   'reward': 2,
---   'transfer': 3,
+--   'send': 3,
 --   'mention': 4,
 --   'follow': 5,
 --   'vote': 6,
 --   'comment_reply': 7,
 --   'post_reply': 8,
---   'key_update': 9,
---   'message': 10
+--   'account_update': 9,
+--   'message': 10,
+--   'receive': 11,
+--   'reserved1': 12,
+--   'reserved2': 13,
+--   'reserved3': 14,
+--   'reserved4': 15,
 -- }
 
 function notification_add(account, ntype)
@@ -21,10 +26,10 @@ function notification_add(account, ntype)
   if #res > 0 then
     -- print_r(res)
     local tuple = res[1]
-    -- print('existing:', tuple)
+    -- print('existing:', tuple, #tuple)
     return space:update(account, {{'+', 2, 1}, {'+', ntype + 2, 1}})
   else
-    local tuple = {account, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+    local tuple = {account, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
     tuple[ntype + 2] = 1;
     -- print('new:')
     -- print_r(tuple)
