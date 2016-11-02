@@ -22,4 +22,4 @@ box.once('bootstrap', function()
     notifications:create_index('primary', {type = 'tree', parts = {1, 'STR'}})
 end)
 
-require('console').start()
+-- require('console').start()

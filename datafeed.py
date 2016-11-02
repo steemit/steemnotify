@@ -39,7 +39,7 @@ def _get_followers(account_name, direction='follower', last_user=''):
     return followers
 
 def getFollowers(account_name):
-    print('getFollowers', account_name)
+    # print('getFollowers', account_name)
     global followers_space
     res = followers_space.select(account_name)
     if len(res) == 0:
@@ -50,7 +50,7 @@ def getFollowers(account_name):
     return followers
 
 def addFollower(account_name, follower):
-    print('addFollower', account_name, follower)
+    # print('addFollower', account_name, follower)
     global tnt_server
     global followers_space
     res = tnt_server.call('add_follower', account_name, follower)
@@ -71,21 +71,21 @@ def processOp(op_data):
             tnt_server.call('notification_add', data['following'], NTYPES['follow'])
     if op_type == 'comment':
         if op['parent_author']:
-            print('comment', op['author'], op['parent_author'])
+            # print('comment', op['author'], op['parent_author'])
             tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'])
         else:
-            print('post', op['author'])
+            # print('post', op['author'])
             followers = getFollowers(op['author'])
             for follower in followers:
                 # print('----',follower, NTYPES['feed'])
                 tnt_server.call('notification_add', follower, NTYPES['feed'])
     if op_type.startswith('transfer'):
         if op['from'] != op['to']:
-            print(op_type, op['from'], op['to'])
+            # print(op_type, op['from'], op['to'])
             tnt_server.call('notification_add', op['from'], NTYPES['send'])
             tnt_server.call('notification_add', op['to'], NTYPES['receive'])
     if op_type == 'account_update':
-        print(op_type, op['account'])
+        # print(op_type, op['account'])
         tnt_server.call('notification_add', op['account'], NTYPES['account_update'])
 
 
@@ -98,13 +98,14 @@ else:
     steem_space.insert(('last_block_id', last_block))
 
 for block in steem.block_stream(start=last_block, mode='irreversible'):
-    #
     # print(json.dumps(block, indent=4))
+    if last_block % 10 == 0:
+        print('processing block', last_block)
     for t in block['transactions']:
         for op in t['operations']:
-            if op[0] not in ['comment', 'vote', 'custom_json', 'pow2', 'account_create', 'limit_order_create', 'limit_order_cancel', 'feed_publish', 'comment_options', 'account_witness_vote', 'account_update'] and not op[0].startswith('transfer'):
-                print('---------', op[0])
-                print(json.dumps(op[1], indent=4))
+            # if op[0] not in ['comment', 'vote', 'custom_json', 'pow2', 'account_create', 'limit_order_create', 'limit_order_cancel', 'feed_publish', 'comment_options', 'account_witness_vote', 'account_update'] and not op[0].startswith('transfer'):
+            #     print('---------', op[0])
+            #     print(json.dumps(op[1], indent=4))
             processOp(op)
     last_block += 1
     steem_space.update('last_block_id', [('=', 1, last_block)])
