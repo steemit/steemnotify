@@ -12,4 +12,4 @@ WORKDIR $STEEM_HOME
 
 COPY datafeed.py .
 
-CMD ["python", "./datafeed.py" ]
+CMD ["python", "./datafeed.py"]

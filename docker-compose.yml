@@ -1,6 +1,7 @@
 version: '2'
 
 services:
+
   datafeed:
     image: datafeed
     build:
@@ -9,7 +10,7 @@ services:
     links:
       - datastore
     environment:
-      - WS_CONNECTION  
+      - WS_CONNECTION
 
   datastore:
     image: datastore

@@ -1,8 +1,11 @@
+print('starting datafeed.py..')
+
 from steemapi.steemnoderpc import SteemNodeRPC
 import json
 import tarantool
 import os
-
+import time
+import sys
 
 NTYPES = {
   'total': 0,
@@ -19,15 +22,10 @@ NTYPES = {
   'receive': 11
 }
 
-tnt_server = tarantool.connect('datastore', 3301)
-steem_space = tnt_server.space('steem')
-followers_space = tnt_server.space('followers')
-
-ws_connection = os.environ['WS_CONNECTION']
-
-print('Connecting to ', ws_connection)
-
-steem = SteemNodeRPC(ws_connection, apis = ['database_api', 'login_api', 'follow_api'])
+tnt_server = None
+steem_space = None
+followers_space = None
+steem = None
 
 def _get_followers(account_name, direction='follower', last_user=''):
     if direction == 'follower':
@@ -74,11 +72,12 @@ def processOp(op_data):
             # print('comment', op['author'], op['parent_author'])
             tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'])
         else:
-            # print('post', op['author'])
-            followers = getFollowers(op['author'])
-            for follower in followers:
-                # print('----',follower, NTYPES['feed'])
-                tnt_server.call('notification_add', follower, NTYPES['feed'])
+            body = op['body']
+            if body and not body.startswith('@@ '):
+                # print('post', op)
+                followers = getFollowers(op['author'])
+                for follower in followers:
+                    tnt_server.call('notification_add', follower, NTYPES['feed'])
     if op_type.startswith('transfer'):
         if op['from'] != op['to']:
             # print(op_type, op['from'], op['to'])
@@ -88,24 +87,50 @@ def processOp(op_data):
         # print(op_type, op['account'])
         tnt_server.call('notification_add', op['account'], NTYPES['account_update'])
 
+def run():
+    global steem
+    global steem_space
+    last_block = 6406651
+    last_block_id_res = steem_space.select('last_block_id')
+    if len(last_block_id_res) != 0:
+        last_block = last_block_id_res[0][1]
+        print('last_block', last_block)
+    else:
+        steem_space.insert(('last_block_id', last_block))
 
-last_block = 6231870
-last_block_id_res = steem_space.select('last_block_id')
-if len(last_block_id_res) != 0:
-    last_block = last_block_id_res[0][1]
-    print('last_block', last_block)
-else:
-    steem_space.insert(('last_block_id', last_block))
+    for block in steem.block_stream(start=last_block, mode='irreversible'):
+        # print(json.dumps(block, indent=4))
+        if last_block % 10 == 0:
+            print('processing block', last_block)
+            sys.stdout.flush()
+        for t in block['transactions']:
+            for op in t['operations']:
+                # if op[0] not in ['comment', 'vote', 'custom_json', 'pow2', 'account_create', 'limit_order_create', 'limit_order_cancel', 'feed_publish', 'comment_options', 'account_witness_vote', 'account_update'] and not op[0].startswith('transfer'):
+                #     print('---------', op[0])
+                #     print(json.dumps(op[1], indent=4))
+                processOp(op)
+        last_block += 1
+        steem_space.update('last_block_id', [('=', 1, last_block)])
 
-for block in steem.block_stream(start=last_block, mode='irreversible'):
-    # print(json.dumps(block, indent=4))
-    if last_block % 10 == 0:
-        print('processing block', last_block)
-    for t in block['transactions']:
-        for op in t['operations']:
-            # if op[0] not in ['comment', 'vote', 'custom_json', 'pow2', 'account_create', 'limit_order_create', 'limit_order_cancel', 'feed_publish', 'comment_options', 'account_witness_vote', 'account_update'] and not op[0].startswith('transfer'):
-            #     print('---------', op[0])
-            #     print(json.dumps(op[1], indent=4))
-            processOp(op)
-    last_block += 1
-    steem_space.update('last_block_id', [('=', 1, last_block)])
+
+ws_connection = os.environ['WS_CONNECTION']
+print('Connecting to ', ws_connection)
+sys.stdout.flush()
+steem = SteemNodeRPC(ws_connection, apis = ['database_api', 'login_api', 'follow_api'])
+
+print('Connecting to tarantool (datastore:3301)..')
+sys.stdout.flush()
+
+while True:
+    try:
+        tnt_server = tarantool.connect('datastore', 3301)
+        steem_space = tnt_server.space('steem')
+        followers_space = tnt_server.space('followers')
+    except Exception as e:
+        print('Cannot connect to tarantool server', file=sys.stderr)
+        print(str(e), file=sys.stderr)
+        sys.stderr.flush()
+        time.sleep(10)
+        continue
+    else:
+        run()
