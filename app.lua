@@ -21,6 +21,15 @@ box.once('bootstrap', function()
 
     notifications = box.schema.create_space('notifications')
     notifications:create_index('primary', {type = 'tree', parts = {1, 'STR'}})
+
+    quota = box.schema.create_space('quota')
+    quota:create_index('primary', {type = 'tree', parts = {1, 'unsigned'}})
+    quota:create_index('secondary', {
+        type = 'tree',
+        unique = false,
+        parts = {2, 'string', 3, 'string'}
+    })
 end)
 
+require 'quota'
 -- require('console').start()
