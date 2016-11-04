@@ -1,4 +1,5 @@
 require 'notifications'
+require 'quota'
 
 box.cfg {
     log_level = 5,
@@ -31,5 +32,7 @@ box.once('bootstrap', function()
     })
 end)
 
-require 'quota'
+fiber = require 'fiber'
+fiber.create(quotaGarbageCollectionFiber)
+
 -- require('console').start()

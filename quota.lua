@@ -1,27 +1,18 @@
-fiber = require('fiber')
 -- require 'table_utils'
 
--- box.cfg {
---     log_level = 5,
---     listen = '0.0.0.0:3301',
---     wal_dir    = "quota-db-taran",
---     snap_dir   = "quota-db-taran",
---     vinyl_dir = "quota-db-taran"
--- }
--- 
-box.once('bootstrap', function()
-    
-end)
+-- Usage
+-- r = limit('uploadIp', 'jimmy', 'Test calls', 'function calls', 1)
+-- print_r(r) --> {over = over, total = total, max = max, duration = duration, desc = desc}
 
-QUOTA = {
+local QUOTA = {
     TIME = 4,
     AMOUNT = 5,
 }
 
-INFO_LOG = true
+local INFO_LOG = true
 
 -- TODO: store in database, pull on garbageCollection
-limitsByType = {
+local limitsByType = {
     uploadIp = {
         minute = 60,
         hour = 70,
@@ -38,14 +29,14 @@ limitsByType = {
     },
 }
 
-seconds = {
+local seconds = {
     minute = 60,
     hour = 60 * 60,
     day =  60 * 60 * 24,
     week = 60 * 60 * 24 * 7,
 }
 
-function durations(age, cb)
+local function durations(age, cb)
     for duration, amt in pairs(seconds) do
         if age <= amt then
             cb(duration)
@@ -53,7 +44,7 @@ function durations(age, cb)
     end
 end
 
-function aprox(duration)
+local function aprox(duration)
     return
         duration >= seconds.week and tostring(duration / seconds.week) .. ' week' or
         duration >= seconds.day and tostring(duration / seconds.day) .. ' day' or
@@ -67,25 +58,32 @@ end
 -- description = What is being limited? 'Uploads', 'Upload size' (use capital)
 -- unitLabel = A label for the amount value (requests, megabytes)
 -- amount = Amount to increment quota.  Only increments if still within quota.
-function limit(type, key, description, unitLabel, amount)
+function limit(limitType, key, description, unitLabel, amount)
+    local limits = limitsByType[limitType]
+    if not limits then
+        box.error{reason = 'Unknown limit type: ' .. tostring(limitType)}
+    end
+
+    if key == nil or key == '' then
+        box.error{reason = 'key is required'}
+    end
+
     if(amount == nil) then
         amount = 1
     end
-
-    local limits = limitsByType[type]
-    if not limits then
-        box.error{reason = 'Unknown limit type: ' .. type}
+    if(type(amount) ~= 'number') then
+        box.error{reason = 'Amount is a required string: ' .. tostring(amount)}
     end
 
     local time = os.time()
-    local tuple = {type, key, time, amount}
+    local tuple = {limitType, key, time, amount}
 
     box.begin()
 
     local quota = box.space.quota
     quota:auto_increment(tuple)
 
-    local res = quota.index.secondary:select{type, key}
+    local res = quota.index.secondary:select{limitType, key}
     -- print_r(res)
 
     local sum_by_duration = {}
@@ -142,15 +140,13 @@ function limit(type, key, description, unitLabel, amount)
             (unitLabel and ' ' .. unitLabel or '') .. ' within ' .. aprox(s)
         end
     end
+
     return {over = over, total = total, max = max,
         duration = duration, desc = desc}
 end
 
--- r = limit('uploadIp', 'jimmy', 'Test calls', 'function calls', 1)
--- print_r(r)
-
-function garbageCollection()
-    print('--- quota garbageCollection ---')
+local function garbageCollection()
+    -- print('Quota garbage collection running...')
     local time = os.time()
 
     local quota = box.space.quota
@@ -158,8 +154,8 @@ function garbageCollection()
     -- print_r(res)
 
     for i, row in pairs(res) do
-        local type = row[2]
-        local limits = limitsByType[type]
+        local limitType = row[2]
+        local limits = limitsByType[limitType]
         local max =
             limits.week ~= nil and seconds.week or
             limits.day ~= nil and seconds.day or
@@ -168,17 +164,16 @@ function garbageCollection()
 
         local age = time - row[QUOTA.TIME]
         local expired = age > max
-        -- print(type .. ',' .. age .. ',' .. max .. ',' .. tostring(expired))
+        -- print(limitType .. ',' .. age .. ',' .. max .. ',' .. tostring(expired))
         if expired then
             quota:delete(row[1])
         end
     end
 end
 
-function garbageCollectionFiber()
+function quotaGarbageCollectionFiber()
     while 0 == 0 do
         garbageCollection()
         fiber.sleep(seconds.minute) -- hour
     end
 end
-gcObject = fiber.create(garbageCollectionFiber)
