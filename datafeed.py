@@ -90,7 +90,7 @@ def processOp(op_data):
 def run():
     global steem
     global steem_space
-    last_block = 6406651
+    last_block = 6433576
     last_block_id_res = steem_space.select('last_block_id')
     if len(last_block_id_res) != 0:
         last_block = last_block_id_res[0][1]
