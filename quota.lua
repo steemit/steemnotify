@@ -53,8 +53,8 @@ local function aprox(duration)
         duration .. ' second'
 end
 
--- limits = {{duration, max}}
--- key = unique key string (ip address, username, etc..
+-- limitType = uploadIp|uploadData
+-- key = string: ip address, username, etc..
 -- description = What is being limited? 'Uploads', 'Upload size' (use capital)
 -- unitLabel = A label for the amount value (requests, megabytes)
 -- amount = Amount to increment quota.  Only increments if still within quota.
@@ -72,7 +72,7 @@ function limit(limitType, key, description, unitLabel, amount)
         amount = 1
     end
     if(type(amount) ~= 'number') then
-        box.error{reason = 'Amount is a required string: ' .. tostring(amount)}
+        box.error{reason = 'Amount is a required number: ' .. tostring(amount)}
     end
 
     local time = os.time()
