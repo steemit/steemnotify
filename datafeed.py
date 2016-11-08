@@ -83,14 +83,14 @@ def processOp(op_data):
             # print(op_type, op['from'], op['to'])
             tnt_server.call('notification_add', op['from'], NTYPES['send'])
             tnt_server.call('notification_add', op['to'], NTYPES['receive'])
-    if op_type == 'account_update':
-        # print(op_type, op['account'])
+    if op_type == 'account_update' and (op['active'] or op['owner'] or op['posting']):
+        # print(json.dumps(op, indent=4))
         tnt_server.call('notification_add', op['account'], NTYPES['account_update'])
 
 def run():
     global steem
     global steem_space
-    last_block = 6433576
+    last_block = 6556151
     last_block_id_res = steem_space.select('last_block_id')
     if len(last_block_id_res) != 0:
         last_block = last_block_id_res[0][1]
@@ -98,7 +98,7 @@ def run():
     else:
         steem_space.insert(('last_block_id', last_block))
 
-    for block in steem.block_stream(start=last_block, mode='irreversible'):
+    for block in steem.block_stream(start=last_block, mode='head'):
         # print(json.dumps(block, indent=4))
         if last_block % 10 == 0:
             print('processing block', last_block)
@@ -133,4 +133,6 @@ while True:
         time.sleep(10)
         continue
     else:
-        run()
+        while True:
+            run()
+            print('[run] exited, continue..')
