@@ -83,7 +83,7 @@ def processOp(op_data):
             # print(op_type, op['from'], op['to'])
             tnt_server.call('notification_add', op['from'], NTYPES['send'])
             tnt_server.call('notification_add', op['to'], NTYPES['receive'])
-    if op_type == 'account_update' and (op['active'] or op['owner'] or op['posting']):
+    if op_type == 'account_update' and ('active' in op or 'owner' in op or 'posting' in op):
         # print(json.dumps(op, indent=4))
         tnt_server.call('notification_add', op['account'], NTYPES['account_update'])
 
