@@ -1,5 +1,6 @@
 require 'notifications'
 require 'quota'
+require 'locks'
 
 box.cfg {
     log_level = 5,
@@ -22,6 +23,9 @@ box.once('bootstrap', function()
 
     notifications = box.schema.create_space('notifications')
     notifications:create_index('primary', {type = 'tree', parts = {1, 'STR'}})
+
+    locks = box.schema.create_space('locks')
+    locks:create_index('primary', {type = 'tree', parts = {1, 'STR'}})
 
     quota = box.schema.create_space('quota')
     quota:create_index('primary', {type = 'tree', parts = {1, 'unsigned'}})

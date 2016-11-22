@@ -21,3 +21,4 @@ services:
       - "3301:3301"
     volumes:
       - ./data:/var/lib/tarantool
+      - ./:/home/src
