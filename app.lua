@@ -1,6 +1,9 @@
 require 'notifications'
 require 'quota'
 require 'locks'
+require 'stats'
+
+io.output():setvbuf("no")
 
 box.cfg {
     log_level = 5,
@@ -26,6 +29,17 @@ box.once('bootstrap', function()
 
     locks = box.schema.create_space('locks')
     locks:create_index('primary', {type = 'tree', parts = {1, 'STR'}})
+
+    -- stats spaces
+    pages = box.schema.create_space('pages')
+    pages:create_index('primary', {type = 'tree', parts = {1, 'unsigned'}})
+    pages:create_index('secondary', {
+        type = 'tree',
+        unique = true,
+        parts = {2, 'string'}
+    })
+    unique_page_views = box.schema.create_space('unique_page_views')
+    unique_page_views:create_index('primary', {type = 'hash', parts = {1, 'unsigned', 2, 'string'}})
 
     quota = box.schema.create_space('quota')
     quota:create_index('primary', {type = 'tree', parts = {1, 'unsigned'}})

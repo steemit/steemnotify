@@ -19,5 +19,8 @@ To access the data via console please to the following:
 ```bash
 $ docker-compose exec datastore /bin/sh
 $ tarantoolctl connect guest@localhost:3301
-```
 
+or
+
+$ docker-compose exec datastore tarantoolctl connect guest@localhost:3301
+```
