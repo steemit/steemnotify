@@ -1,11 +1,11 @@
 print('starting datafeed.py..')
 
-from steemapi.steemnoderpc import SteemNodeRPC
 import json
 import tarantool
 import os
 import time
 import sys
+from steemapi.steemnoderpc import SteemNodeRPC
 
 NTYPES = {
   'total': 0,
@@ -86,11 +86,13 @@ def processOp(op_data):
     if op_type == 'account_update' and ('active' in op or 'owner' in op or 'posting' in op):
         # print(json.dumps(op, indent=4))
         tnt_server.call('notification_add', op['account'], NTYPES['account_update'])
+    # if op_type == 'vote':
+        # print('----', op['voter'], op['permlink'])
 
 def run():
     global steem
     global steem_space
-    last_block = 6556151
+    last_block = 7215382
     last_block_id_res = steem_space.select('last_block_id')
     if len(last_block_id_res) != 0:
         last_block = last_block_id_res[0][1]

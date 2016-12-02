@@ -8,7 +8,7 @@ io.output():setvbuf("no")
 box.cfg {
     log_level = 5,
     listen = '0.0.0.0:3301',
-    slab_alloc_arena = 8.0,
+    slab_alloc_arena = 1.0,
     wal_dir    = "/var/lib/tarantool",
     snap_dir   = "/var/lib/tarantool",
     vinyl_dir = "/var/lib/tarantool"
