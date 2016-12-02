@@ -26,19 +26,19 @@ function page_view(url, ip, uid, ref)
       local upv_res = upv:select{page_id, user_id}
       -- print('upv_res', upv_res)
       if #upv_res > 0 then
-          return tuple[3]
+          return {false, tuple[3]}
       else
           pages.index.secondary:update(url, {{'+', 3, 1}})
           upv:insert{page_id, user_id}
           store_ref(ref, page_id, ip, uid)
-          return tuple[3] + 1
+          return {true, tuple[3] + 1}
       end
     else
       res = pages:auto_increment{url, 1}
       local page_id = res[1]
-      print('new url', res)
+      -- print('new url', res)
       upv:insert{page_id, user_id}
       store_ref(ref, page_id, ip, uid)
-      return 1
+      return {true, 1}
     end
 end
