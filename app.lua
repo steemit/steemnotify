@@ -1,5 +1,4 @@
 require 'notifications'
-require 'quota'
 require 'locks'
 require 'stats'
 
@@ -51,8 +50,5 @@ box.once('bootstrap', function()
         parts = {2, 'string', 3, 'string'}
     })
 end)
-
-fiber = require 'fiber'
-fiber.create(quotaGarbageCollectionFiber)
 
 -- require('console').start()
