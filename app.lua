@@ -1,3 +1,4 @@
+fiber = require 'fiber'
 require 'notifications'
 require 'locks'
 require 'stats'
