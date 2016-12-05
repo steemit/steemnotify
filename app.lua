@@ -41,6 +41,8 @@ box.once('bootstrap', function()
     unique_page_views:create_index('primary', {type = 'hash', parts = {1, 'unsigned', 2, 'string'}})
     refs = box.schema.create_space('refs')
     refs:create_index('primary', {type = 'tree', parts = {1, 'unsigned'}})
+    refs:create_index('by_ref', {type = 'tree', unique = false, parts = {2, 'unsigned'}})
+    refs:create_index('by_page', {type = 'tree', unique = false, parts = {3, 'unsigned'}})
 
     quota = box.schema.create_space('quota')
     quota:create_index('primary', {type = 'tree', parts = {1, 'unsigned'}})
