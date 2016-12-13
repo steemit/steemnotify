@@ -1,6 +1,6 @@
-FROM python:3.5-slim
+FROM python:3.5
 
-RUN pip3 install steem tarantool
+RUN pip3 install steem tarantool mixpanel
 
 ENV STEEM_USER   steem
 ENV STEEM_HOME   /home/steem

@@ -31,7 +31,7 @@ function page_view(url, ip, uid, ref)
       else
           pages.index.secondary:update(url, {{'+', 3, 1}})
           upv:insert{page_id, user_id, current_time}
-          upv:insert{page_id, ip, current_time}
+          upv:replace{page_id, ip, current_time}
           store_ref(ref, page_id, ip, uid)
           return {true, tuple[3] + 1}
       end
@@ -40,7 +40,7 @@ function page_view(url, ip, uid, ref)
       local page_id = res[1]
       -- print('new url', res)
       upv:insert{page_id, user_id, current_time}
-      upv:insert{page_id, ip, current_time}
+      upv:replace{page_id, ip, current_time}
       store_ref(ref, page_id, ip, uid)
       return {true, 1}
     end
