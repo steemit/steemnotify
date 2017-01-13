@@ -84,11 +84,20 @@ def processOp(op_data):
     if op_type.startswith('transfer'):
         if op['from'] != op['to']:
             # print(op_type, op['from'], op['to'])
-            tnt_server.call('notification_add', op['from'], NTYPES['send'])
-            tnt_server.call('notification_add', op['to'], NTYPES['receive'])
+            title = 'Steemit'
+            body = 'transfer to @%s' % (op['to'])
+            url = 'https://steemit.com/@%s/transfers' % (op['from'])
+            tnt_server.call('notification_add', op['from'], NTYPES['send'], title, body, url, '')
+
+            body = 'transfer from @%s' % (op['from'])
+            url = 'https://steemit.com/@%s/transfers' % (op['to'])
+            tnt_server.call('notification_add', op['to'], NTYPES['receive'], title, body, url, '')
     if op_type == 'account_update' and ('active' in op or 'owner' in op or 'posting' in op):
         # print(json.dumps(op, indent=4))
-        tnt_server.call('notification_add', op['account'], NTYPES['account_update'])
+        title = 'Steemit'
+        body = 'your account or password has been updated'
+        url = 'https://steemit.com/@%s/permissions' % (op['account'])
+        tnt_server.call('notification_add', op['account'], NTYPES['account_update'], title, body, url, '')
     # if op_type == 'vote':
         # print('----', op['voter'], op['permlink'])
 
