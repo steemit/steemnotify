@@ -70,7 +70,11 @@ def processOp(op_data):
     if op_type == 'comment':
         if op['parent_author']:
             # print('comment', op['author'], op['parent_author'])
-            tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'])
+            title = 'Steemit'
+            body = 'new reply from @%s' % (op['author'])
+            url = 'https://steemit.com/@%s/recent-replies' % (op['parent_author'])
+            print('reply: ', title, body, url)
+            tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'], title, body, url)
         else:
             body = op['body']
             if body and not body.startswith('@@ '):
@@ -92,7 +96,7 @@ def processOp(op_data):
 def run():
     global steem
     global steem_space
-    last_block = 7215382
+    last_block = 8446170
     last_block_id_res = steem_space.select('last_block_id')
     if len(last_block_id_res) != 0:
         last_block = last_block_id_res[0][1]

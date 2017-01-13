@@ -27,6 +27,12 @@ box.once('bootstrap', function()
     notifications = box.schema.create_space('notifications')
     notifications:create_index('primary', {type = 'tree', parts = {1, 'STR'}})
 
+    webpush_subscribers = box.schema.create_space('webpush_subscribers')
+    webpush_subscribers:create_index('primary', {type = 'tree', parts = {1, 'STR'}})
+
+    notifications_delivery_queue = box.schema.create_space('notifications_delivery_queue')
+    notifications_delivery_queue:create_index('primary', {type = 'tree', parts = {1, 'unsigned'}})
+
     locks = box.schema.create_space('locks')
     locks:create_index('primary', {type = 'tree', parts = {1, 'STR'}})
 
