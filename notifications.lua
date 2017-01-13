@@ -19,7 +19,7 @@ require 'table_utils'
 --   'reserved4': 15,
 -- }
 
-function notification_add(account, ntype, title, body, url)
+function notification_add(account, ntype, title, body, url, pic)
   -- print('notification_push -->', account, ntype)
   local space = box.space.notifications
   local res = space:select{account}
@@ -41,7 +41,7 @@ function notification_add(account, ntype, title, body, url)
     local last_delivery_time = subscriber[1][3]
     local current_time = math.floor(fiber.time())
     if last_deliver_time == nil or (current_time - last_delivery_time) > 120 then
-      box.space.notifications_delivery_queue:auto_increment{account, ntype, title, body, url}
+      box.space.notifications_delivery_queue:auto_increment{account, ntype, title, body, url, pic}
     end
   end
 end
@@ -88,7 +88,7 @@ function webpush_subscribe(account, new_subscription)
     space:update(account, {{'=', 2, subscriptions}})
   else
     local tuple = {account, {new_subscription}, nil, nil}
-    return
+    space:insert(tuple)
   end
 end
 
@@ -101,7 +101,7 @@ function webpush_get_delivery_queue()
     local subscription = box.space.webpush_subscribers:select{account}
     if #subscription > 0 then
       subscription = subscription[1]
-      table.insert(result, {account, subscription[2], v[4], v[5], v[6]})
+      table.insert(result, {account, subscription[2], v[4], v[5], v[6], v[7]})
       local current_time = math.floor(fiber.time())
       box.space.webpush_subscribers:update(account, {{'=', 3, current_time}, {'=', 4, v[3]}})
     end

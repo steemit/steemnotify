@@ -73,8 +73,7 @@ def processOp(op_data):
             title = 'Steemit'
             body = 'new reply from @%s' % (op['author'])
             url = 'https://steemit.com/@%s/recent-replies' % (op['parent_author'])
-            print('reply: ', title, body, url)
-            tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'], title, body, url)
+            tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'], title, body, url, '')
         else:
             body = op['body']
             if body and not body.startswith('@@ '):
