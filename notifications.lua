@@ -40,7 +40,7 @@ function notification_add(account, ntype, title, body, url, pic)
   if title and body and #subscriber > 0 then
     local last_delivery_time = subscriber[1][3]
     local current_time = math.floor(fiber.time())
-    if last_deliver_time == nil or (current_time - last_delivery_time) > 120 then
+    if ntype != 7 or last_deliver_time == nil or (current_time - last_delivery_time) > 120 then
       box.space.notifications_delivery_queue:auto_increment{account, ntype, title, body, url, pic}
     end
   end

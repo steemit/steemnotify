@@ -71,7 +71,7 @@ def processOp(op_data):
         if op['parent_author']:
             # print('comment', op['author'], op['parent_author'])
             title = 'Steemit'
-            body = 'new reply from @%s' % (op['author'])
+            body = '@%s replied to your post or comment' % (op['author'])
             url = 'https://steemit.com/@%s/recent-replies' % (op['parent_author'])
             tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'], title, body, url, '')
         else:
@@ -85,17 +85,17 @@ def processOp(op_data):
         if op['from'] != op['to']:
             # print(op_type, op['from'], op['to'])
             title = 'Steemit'
-            body = 'transfer to @%s' % (op['to'])
+            body = 'you transfered %s to @%s' % (op['amount'], op['to'])
             url = 'https://steemit.com/@%s/transfers' % (op['from'])
             tnt_server.call('notification_add', op['from'], NTYPES['send'], title, body, url, '')
 
-            body = 'transfer from @%s' % (op['from'])
+            body = 'you received %s from @%s' % (op['amount'], op['from'])
             url = 'https://steemit.com/@%s/transfers' % (op['to'])
             tnt_server.call('notification_add', op['to'], NTYPES['receive'], title, body, url, '')
     if op_type == 'account_update' and ('active' in op or 'owner' in op or 'posting' in op):
-        # print(json.dumps(op, indent=4))
+        #print(json.dumps(op, indent=4))
         title = 'Steemit'
-        body = 'your account or password has been updated'
+        body = 'account @%s has been updated or password changed' % (op['account'])
         url = 'https://steemit.com/@%s/permissions' % (op['account'])
         tnt_server.call('notification_add', op['account'], NTYPES['account_update'], title, body, url, '')
     # if op_type == 'vote':
