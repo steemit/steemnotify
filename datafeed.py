@@ -5,6 +5,7 @@ import tarantool
 import os
 import time
 import sys
+import re
 from steemapi.steemnoderpc import SteemNodeRPC
 
 NTYPES = {
@@ -58,6 +59,24 @@ def addFollower(account_name, follower):
         followers_space.insert((account_name, followers))
         tnt_server.call('add_follower', account_name, follower)
 
+def processMentions(author, text, op):
+    mentions = re.findall('\@[\w\d.-]+', text)
+    if (len(mentions) == 0):
+        return
+    # print('\nop: ', op)
+    if op['parent_author']:
+        what = 'comment'
+        url = '@%s/%s#@%s/%s' % (op['parent_author'], op['parent_permlink'], op['author'], op['permlink'])
+    else:
+        what = 'post'
+        url = '@%s/%s' % (op['author'], op['permlink'])
+    for mention in set(mentions):
+        if (mention != author):
+            # print('--- mention: ', what, url, mention)
+            title = 'Steemit'
+            body = '@%s mentioned you in %s' % (op['author'], what)
+            tnt_server.call('notification_add', mention[1:], NTYPES['mention'], title, body, url, '')
+
 def processOp(op_data):
     op_type = op_data[0]
     op = op_data[1]
@@ -68,19 +87,20 @@ def processOp(op_data):
             addFollower(data['following'], data['follower'])
             tnt_server.call('notification_add', data['following'], NTYPES['follow'])
     if op_type == 'comment':
-        if op['parent_author']:
-            # print('comment', op['author'], op['parent_author'])
-            title = 'Steemit'
-            body = '@%s replied to your post or comment' % (op['author'])
-            url = 'https://steemit.com/@%s/recent-replies' % (op['parent_author'])
-            tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'], title, body, url, '')
-        else:
-            body = op['body']
-            if body and not body.startswith('@@ '):
+        comment_body = op['body']
+        if comment_body and not comment_body.startswith('@@ '):
+            if op['parent_author']:
+                # print('comment', op['author'], op['parent_author'])
+                title = 'Steemit'
+                body = '@%s replied to your post or comment' % (op['author'])
+                url = 'https://steemit.com/@%s/recent-replies' % (op['parent_author'])
+                tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'], title, body, url, '')
+            else:
                 # print('post', op)
                 followers = getFollowers(op['author'])
                 for follower in followers:
                     tnt_server.call('notification_add', follower, NTYPES['feed'])
+            processMentions(op['author'], comment_body, op)
     if op_type.startswith('transfer'):
         if op['from'] != op['to']:
             # print(op_type, op['from'], op['to'])
@@ -88,7 +108,6 @@ def processOp(op_data):
             body = 'you transfered %s to @%s' % (op['amount'], op['to'])
             url = 'https://steemit.com/@%s/transfers' % (op['from'])
             tnt_server.call('notification_add', op['from'], NTYPES['send'], title, body, url, '')
-
             body = 'you received %s from @%s' % (op['amount'], op['from'])
             url = 'https://steemit.com/@%s/transfers' % (op['to'])
             tnt_server.call('notification_add', op['to'], NTYPES['receive'], title, body, url, '')
