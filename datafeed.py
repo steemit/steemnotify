@@ -6,7 +6,9 @@ import os
 import time
 import sys
 import re
-from steemapi.steemnoderpc import SteemNodeRPC
+from steem import Steem
+from steem.blockchain import Blockchain
+from steem.account import Account
 
 NTYPES = {
   'total': 0,
@@ -26,24 +28,22 @@ NTYPES = {
 tnt_server = None
 steem_space = None
 followers_space = None
-steem = None
+chain = None
 
-def _get_followers(account_name, direction='follower', last_user=''):
+def _get_followers(account, direction='follower', last_user=''):
     if direction == 'follower':
-        followers = steem.get_followers(account_name, last_user, 'blog', 100, api='follow')
+        followers = account.get_followers()
     elif direction == 'following':
-        followers = steem.get_following(account_name, last_user, 'blog', 100, api='follow')
-    if len(followers) == 100:
-        followers += _get_followers(account_name, last_user=followers[-1][direction])[1:]
+        followers = account.get_following()
     return followers
 
-def getFollowers(account_name):
-    # print('getFollowers', account_name)
+def getFollowers(account):
+    # print('getFollowers', account.name)
     global followers_space
-    res = followers_space.select(account_name)
+    res = followers_space.select(account.name)
     if len(res) == 0:
-        followers = [x['follower'] for x in _get_followers(account_name)]
-        followers_space.insert((account_name, followers))
+        followers = _get_followers(account)
+        followers_space.insert((account.name, followers))
     else:
         followers = res[0][1]
     return followers
@@ -54,12 +54,12 @@ def addFollower(account_name, follower):
     global followers_space
     res = tnt_server.call('add_follower', account_name, follower)
     if not res[0][0]:
-        followers = [x['follower'] for x in _get_followers(account_name)]
+        followers = _get_followers(Account(account_name))
         followers.append(follower)
         followers_space.insert((account_name, followers))
         tnt_server.call('add_follower', account_name, follower)
 
-def processMentions(author, text, op):
+def processMentions(author_account, text, op):
     mentions = re.findall('\@[\w\d.-]+', text)
     if (len(mentions) == 0):
         return
@@ -71,11 +71,13 @@ def processMentions(author, text, op):
         what = 'post'
         url = '@%s/%s' % (op['author'], op['permlink'])
     for mention in set(mentions):
-        if (mention != author):
+        if (mention != op['author']):
             # print('--- mention: ', what, url, mention)
             title = 'Steemit'
             body = '@%s mentioned you in %s' % (op['author'], what)
-            tnt_server.call('notification_add', mention[1:], NTYPES['mention'], title, body, url, '')
+            profile = author_account.profile
+            pic = profile['profile_image'] if profile and 'profile_image' in profile else ''
+            tnt_server.call('notification_add', mention[1:], NTYPES['mention'], title, body, url, pic)
 
 def processOp(op_data):
     op_type = op_data[0]
@@ -89,18 +91,21 @@ def processOp(op_data):
     if op_type == 'comment':
         comment_body = op['body']
         if comment_body and not comment_body.startswith('@@ '):
+            author_account = Account(op['author'])
             if op['parent_author']:
                 # print('comment', op['author'], op['parent_author'])
                 title = 'Steemit'
                 body = '@%s replied to your post or comment' % (op['author'])
                 url = 'https://steemit.com/@%s/recent-replies' % (op['parent_author'])
-                tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'], title, body, url, '')
+                profile = author_account.profile
+                pic = profile['profile_image'] if profile and 'profile_image' in profile else ''
+                tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'], title, body, url, pic)
             else:
                 # print('post', op)
-                followers = getFollowers(op['author'])
+                followers = getFollowers(author_account)
                 for follower in followers:
                     tnt_server.call('notification_add', follower, NTYPES['feed'])
-            processMentions(op['author'], comment_body, op)
+            processMentions(author_account, comment_body, op)
     if op_type.startswith('transfer'):
         if op['from'] != op['to']:
             # print(op_type, op['from'], op['to'])
@@ -131,7 +136,7 @@ def run():
     else:
         steem_space.insert(('last_block_id', last_block))
 
-    for block in steem.block_stream(start=last_block, mode='head'):
+    for block in chain.blocks(start=last_block):
         # print(json.dumps(block, indent=4))
         if last_block % 10 == 0:
             print('processing block', last_block)
@@ -149,7 +154,8 @@ def run():
 ws_connection = os.environ['WS_CONNECTION']
 print('Connecting to ', ws_connection)
 sys.stdout.flush()
-steem = SteemNodeRPC(ws_connection, apis = ['database_api', 'login_api', 'follow_api'])
+steem = Steem(ws_connection)
+chain = Blockchain(steem_instance=steem)
 
 print('Connecting to tarantool (datastore:3301)..')
 sys.stdout.flush()
