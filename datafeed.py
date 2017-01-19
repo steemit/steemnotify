@@ -6,6 +6,7 @@ import os
 import time
 import sys
 import re
+from contextlib import suppress
 from steem import Steem
 from steem.blockchain import Blockchain
 from steem.account import Account
@@ -54,10 +55,11 @@ def addFollower(account_name, follower):
     global followers_space
     res = tnt_server.call('add_follower', account_name, follower)
     if not res[0][0]:
-        followers = _get_followers(Account(account_name))
-        followers.append(follower)
-        followers_space.insert((account_name, followers))
-        tnt_server.call('add_follower', account_name, follower)
+        with suppress(Exception):
+            followers = _get_followers(Account(account_name))
+            followers.append(follower)
+            followers_space.insert((account_name, followers))
+            tnt_server.call('add_follower', account_name, follower)
 
 def processMentions(author_account, text, op):
     mentions = re.findall('\@[\w\d.-]+', text)
@@ -66,13 +68,13 @@ def processMentions(author_account, text, op):
     # print('\nop: ', op)
     if op['parent_author']:
         what = 'comment'
-        url = '@%s/%s#@%s/%s' % (op['parent_author'], op['parent_permlink'], op['author'], op['permlink'])
+        url = 'https://steemit.com/@%s/%s#@%s/%s' % (op['parent_author'], op['parent_permlink'], op['author'], op['permlink'])
     else:
         what = 'post'
-        url = '@%s/%s' % (op['author'], op['permlink'])
+        url = 'https://steemit.com/@%s/%s' % (op['author'], op['permlink'])
     for mention in set(mentions):
         if (mention != op['author']):
-            # print('--- mention: ', what, url, mention)
+            # print('--- mention: ', what, url, mention, mention[1:])
             title = 'Steemit'
             body = '@%s mentioned you in %s' % (op['author'], what)
             profile = author_account.profile
@@ -91,21 +93,22 @@ def processOp(op_data):
     if op_type == 'comment':
         comment_body = op['body']
         if comment_body and not comment_body.startswith('@@ '):
-            author_account = Account(op['author'])
-            if op['parent_author']:
-                # print('comment', op['author'], op['parent_author'])
-                title = 'Steemit'
-                body = '@%s replied to your post or comment' % (op['author'])
-                url = 'https://steemit.com/@%s/recent-replies' % (op['parent_author'])
-                profile = author_account.profile
-                pic = profile['profile_image'] if profile and 'profile_image' in profile else ''
-                tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'], title, body, url, pic)
-            else:
-                # print('post', op)
-                followers = getFollowers(author_account)
-                for follower in followers:
-                    tnt_server.call('notification_add', follower, NTYPES['feed'])
-            processMentions(author_account, comment_body, op)
+            with suppress(Exception):
+                author_account = Account(op['author'])
+                if op['parent_author']:
+                    # print('comment', op['author'], op['parent_author'])
+                    title = 'Steemit'
+                    body = '@%s replied to your post or comment' % (op['author'])
+                    url = 'https://steemit.com/@%s/recent-replies' % (op['parent_author'])
+                    profile = author_account.profile
+                    pic = profile['profile_image'] if profile and 'profile_image' in profile else ''
+                    tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'], title, body, url, pic)
+                else:
+                    # print('post', op)
+                    followers = getFollowers(author_account)
+                    for follower in followers:
+                        tnt_server.call('notification_add', follower, NTYPES['feed'])
+                processMentions(author_account, comment_body, op)
     if op_type.startswith('transfer'):
         if op['from'] != op['to']:
             # print(op_type, op['from'], op['to'])
