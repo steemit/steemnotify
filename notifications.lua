@@ -94,6 +94,24 @@ function webpush_subscribe(account, new_subscription)
   end
 end
 
+function webpush_unsubscribe(account, subscription_auth)
+  local space = box.space.webpush_subscribers
+  local res = space:select{account}
+  if #res > 0 then
+    local subscriptions = res[1][2]
+    for k,v in ipairs(subscriptions) do
+      if v['keys']['auth'] == subscription_auth then
+        table.remove(subscriptions, k)
+      end
+      if #subscriptions > 0 then
+        space:update(account, {{'=', 2, subscriptions}})
+      else
+        space:delete{account}
+      end
+    end
+  end
+end
+
 function webpush_get_delivery_queue()
   local space = box.space.notifications_delivery_queue
   local queue = space:select{}

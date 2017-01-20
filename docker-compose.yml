@@ -11,6 +11,7 @@ services:
       - datastore
     environment:
       - WS_CONNECTION
+      - IMG_PROXY_PREFIX
 
   datastore:
     image: datastore

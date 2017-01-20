@@ -30,6 +30,7 @@ tnt_server = None
 steem_space = None
 followers_space = None
 chain = None
+img_proxy_prefix = os.environ['IMG_PROXY_PREFIX']
 
 def _get_followers(account, direction='follower', last_user=''):
     if direction == 'follower':
@@ -76,9 +77,9 @@ def processMentions(author_account, text, op):
         if (mention != op['author']):
             # print('--- mention: ', what, url, mention, mention[1:])
             title = 'Steemit'
-            body = '@%s mentioned you in %s' % (op['author'], what)
+            body = '@%s mentioned you in a %s' % (op['author'], what)
             profile = author_account.profile
-            pic = profile['profile_image'] if profile and 'profile_image' in profile else ''
+            pic = img_proxy_prefix + profile['profile_image'] if profile and 'profile_image' in profile else ''
             tnt_server.call('notification_add', mention[1:], NTYPES['mention'], title, body, url, pic)
 
 def processOp(op_data):
@@ -101,7 +102,7 @@ def processOp(op_data):
                     body = '@%s replied to your post or comment' % (op['author'])
                     url = 'https://steemit.com/@%s/recent-replies' % (op['parent_author'])
                     profile = author_account.profile
-                    pic = profile['profile_image'] if profile and 'profile_image' in profile else ''
+                    pic = img_proxy_prefix + profile['profile_image'] if profile and 'profile_image' in profile else ''
                     tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'], title, body, url, pic)
                 else:
                     # print('post', op)
@@ -158,7 +159,7 @@ ws_connection = os.environ['WS_CONNECTION']
 print('Connecting to ', ws_connection)
 sys.stdout.flush()
 steem = Steem(ws_connection)
-chain = Blockchain(steem_instance=steem)
+chain = Blockchain(steem_instance=steem, mode='head')
 
 print('Connecting to tarantool (datastore:3301)..')
 sys.stdout.flush()
