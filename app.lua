@@ -16,7 +16,8 @@ box.cfg {
 
 box.once('bootstrap', function()
     print('initializing..')
-    box.schema.user.grant('guest', 'read,write,execute', 'universe')
+    box.schema.user.grant('guest', 'read,write,execute,create,drop,alter ', 'universe')
+    box.session.su('guest')
 
     steem = box.schema.create_space('steem')
     steem:create_index('primary', {type = 'tree', parts = {1, 'STR'}})

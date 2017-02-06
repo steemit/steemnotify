@@ -10,6 +10,8 @@ from contextlib import suppress
 from steem import Steem
 from steem.blockchain import Blockchain
 from steem.account import Account
+from steem.post import Post
+from steem.exceptions import PostDoesNotExist
 
 NTYPES = {
   'total': 0,
@@ -26,11 +28,21 @@ NTYPES = {
   'receive': 11
 }
 
+steem = None
 tnt_server = None
 steem_space = None
 followers_space = None
 chain = None
 img_proxy_prefix = os.environ['IMG_PROXY_PREFIX']
+processed_posts = {}
+
+def get_post_key(post):
+    try:
+        if not post.meta or type(post.meta) != type(dict()) or not 'tags' in post.meta or len(post.meta['tags']) == 0:
+            return None
+        return '/%s/@%s/%s' % (post.meta['tags'][0], post.author, post.permlink)
+    except PostDoesNotExist:
+        return None
 
 def _get_followers(account, direction='follower', last_user=''):
     if direction == 'follower':
@@ -94,7 +106,11 @@ def processOp(op_data):
     if op_type == 'comment':
         comment_body = op['body']
         if comment_body and not comment_body.startswith('@@ '):
-            with suppress(Exception):
+            post = Post(op, steem_instance=steem)
+            pkey = get_post_key(post)
+            # print('post: ', pkey)
+            if pkey and not pkey in processed_posts:
+                # with suppress(Exception):
                 author_account = Account(op['author'])
                 if op['parent_author']:
                     # print('comment', op['author'], op['parent_author'])
@@ -105,11 +121,12 @@ def processOp(op_data):
                     pic = img_proxy_prefix + profile['profile_image'] if profile and 'profile_image' in profile else ''
                     tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'], title, body, url, pic)
                 else:
-                    # print('post', op)
                     followers = getFollowers(author_account)
                     for follower in followers:
                         tnt_server.call('notification_add', follower, NTYPES['feed'])
                 processMentions(author_account, comment_body, op)
+                processed_posts[pkey] = True
+
     if op_type.startswith('transfer'):
         if op['from'] != op['to']:
             # print(op_type, op['from'], op['to'])
@@ -132,7 +149,7 @@ def processOp(op_data):
 def run():
     global steem
     global steem_space
-    last_block = 8446170
+    last_block = chain.info()['head_block_number']
     last_block_id_res = steem_space.select('last_block_id')
     if len(last_block_id_res) != 0:
         last_block = last_block_id_res[0][1]
