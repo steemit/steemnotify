@@ -40,17 +40,25 @@ chain = None
 img_proxy_prefix = os.environ['IMG_PROXY_PREFIX']
 processed_posts = {}
 
+
 def get_post_key(post):
     try:
+
         if not post.meta or \
-            type(post.meta) != type(dict()) or \
-            not 'tags' in post.meta or \
-            len(post.meta['tags']) == 0:
+                not isinstance(post.meta, dict) or \
+                'tags' not in post.meta or \
+                len(post.meta['tags']) == 0:
             return None
+
         return '/%s/@%s/%s' % (
-            post.meta['tags'][0], post.author, post.permlink)
+            post.meta['tags'][0],
+            post.author,
+            post.permlink
+        )
+
     except PostDoesNotExist:
         return None
+
 
 def _get_followers(account, direction='follower', last_user=''):
     if direction == 'follower':
@@ -58,6 +66,7 @@ def _get_followers(account, direction='follower', last_user=''):
     elif direction == 'following':
         followers = account.get_following()
     return followers
+
 
 # FIXME mixing camelCase and snake_case
 def getFollowers(account):
@@ -71,6 +80,7 @@ def getFollowers(account):
         followers = res[0][1]
     return followers
 
+
 def addFollower(account_name, follower):
     # print('addFollower', account_name, follower)
     # FIXME globals
@@ -83,6 +93,7 @@ def addFollower(account_name, follower):
             followers.append(follower)
             followers_space.insert((account_name, followers))
             tnt_server.call('add_follower', account_name, follower)
+
 
 def processMentions(author_account, text, op):
 
@@ -125,6 +136,7 @@ def processMentions(author_account, text, op):
             pic
         )
 
+
 def processOp(op_data):
     op_type = op_data[0]
     op = op_data[1]
@@ -144,7 +156,7 @@ def processOp(op_data):
             post = Post(op, steem_instance=steem)
             pkey = get_post_key(post)
             # print('post: ', pkey)
-            if pkey and not pkey in processed_posts:
+            if pkey and pkey not in processed_posts:
                 # with suppress(Exception):
                 author_account = Account(op['author'])
 
@@ -169,7 +181,7 @@ def processOp(op_data):
                 )
                 profile = author_account.profile
                 pic = img_proxy_prefix + profile['profile_image'] \
-                        if profile and 'profile_image' in profile else ''
+                    if profile and 'profile_image' in profile else ''
                 tnt_server.call(
                     'notification_add',
                     op['parent_author'],
@@ -219,7 +231,7 @@ def processOp(op_data):
     if op_type == 'account_update' and (
         'active' in op or 'owner' in op or 'posting' in op
     ):
-        #print(json.dumps(op, indent=4))
+        # print(json.dumps(op, indent=4))
         title = 'Steemit'
         body = 'account @%s has been updated or password changed' % (
             op['account']
@@ -236,6 +248,7 @@ def processOp(op_data):
         )
     # if op_type == 'vote':
         # print('----', op['voter'], op['permlink'])
+
 
 def run():
     # FIXME globals
@@ -267,6 +280,7 @@ def run():
         last_block += 1
         steem_space.update('last_block_id', [('=', 1, last_block)])
 
+
 def main():
     print('starting datafeed.py..')
     ws_connection = os.environ['WS_CONNECTION']
@@ -295,6 +309,7 @@ def main():
             while True:
                 run()
                 print('[run] exited, continue..')
+
 
 if __name__ == "__main__":
     main()
