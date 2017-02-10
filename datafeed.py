@@ -29,9 +29,7 @@ NTYPES = {
   'receive': 11
 }
 
-# FIXME this is probably better as a class with
-# these as instance variables
-
+# gloabal variables
 steem = None
 tnt_server = None
 steem_space = None
@@ -41,26 +39,20 @@ img_proxy_prefix = os.environ['IMG_PROXY_PREFIX']
 processed_posts = {}
 
 
-def get_post_key(post):
+def getPostKey(post):
     try:
-
         if not post.meta or \
                 not isinstance(post.meta, dict) or \
                 'tags' not in post.meta or \
                 len(post.meta['tags']) == 0:
             return None
 
-        return '/%s/@%s/%s' % (
-            post.meta['tags'][0],
-            post.author,
-            post.permlink
-        )
-
+        return '/%s/@%s/%s' % (post.meta['tags'][0], post.author, post.permlink)
     except PostDoesNotExist:
         return None
 
 
-def _get_followers(account, direction='follower', last_user=''):
+def getFollowersWithDirection(account, direction='follower', last_user=''):
     if direction == 'follower':
         followers = account.get_followers()
     elif direction == 'following':
@@ -68,13 +60,11 @@ def _get_followers(account, direction='follower', last_user=''):
     return followers
 
 
-# FIXME mixing camelCase and snake_case
 def getFollowers(account):
     # print('getFollowers', account.name)
-    global followers_space
     res = followers_space.select(account.name)
     if len(res) == 0:
-        followers = _get_followers(account)
+        followers = getFollowersWithDirection(account)
         followers_space.insert((account.name, followers))
     else:
         followers = res[0][1]
@@ -83,25 +73,19 @@ def getFollowers(account):
 
 def addFollower(account_name, follower):
     # print('addFollower', account_name, follower)
-    # FIXME globals
-    global tnt_server
-    global followers_space
     res = tnt_server.call('add_follower', account_name, follower)
     if not res[0][0]:
         with suppress(Exception):
-            followers = _get_followers(Account(account_name))
+            followers = getFollowersWithDirection(Account(account_name))
             followers.append(follower)
             followers_space.insert((account_name, followers))
             tnt_server.call('add_follower', account_name, follower)
 
 
 def processMentions(author_account, text, op):
-
     mentions = re.findall('\@[\w\d.-]+', text)
-
     if (len(mentions) == 0):
         return
-
     # print('\nop: ', op)
     if op['parent_author']:
         what = 'comment'
@@ -119,88 +103,53 @@ def processMentions(author_account, text, op):
         if (mention == op['author']):
             # don't notify on self-mentions
             continue
-
         # print('--- mention: ', what, url, mention, mention[1:])
         title = 'Steemit'
         body = '@%s mentioned you in a %s' % (op['author'], what)
         profile = author_account.profile
         pic = img_proxy_prefix + profile['profile_image'] \
             if profile and 'profile_image' in profile else ''
-        tnt_server.call(
-            'notification_add',
-            mention[1:],
-            NTYPES['mention'],
-            title,
-            body,
-            url,
-            pic
-        )
+        tnt_server.call('notification_add', mention[1:], NTYPES['mention'], title, body, url, pic)
 
 
 def processOp(op_data):
     op_type = op_data[0]
     op = op_data[1]
+
     if op_type == 'custom_json' and op['id'] == 'follow':
         op_json = json.loads(op['json'])
         if isinstance(op_json, list) and op_json[0] == 'follow':
             data = op_json[1]
             addFollower(data['following'], data['follower'])
-            tnt_server.call(
-                'notification_add',
-                data['following'],
-                NTYPES['follow']
-            )
+            tnt_server.call('notification_add', data['following'], NTYPES['follow'])
+
     if op_type == 'comment':
         comment_body = op['body']
         if comment_body and not comment_body.startswith('@@ '):
             post = Post(op, steem_instance=steem)
-            pkey = get_post_key(post)
+            pkey = getPostKey(post)
             # print('post: ', pkey)
-            if pkey and pkey not in processed_posts:
-                # with suppress(Exception):
-                author_account = Account(op['author'])
-
-                if author_account.rep < MIN_NOTIFY_REPUTATION:
-                    # no notifications for low-rep accounts
-                    return
-
-                if not op['parent_author']:
-                    return
-
-                if op['parent_author'] == op['author']:
+            if not pkey or pkey in processed_posts:
+                return
+            processed_posts[pkey] = True
+            author_account = Account(op['author'])
+            if author_account.rep < MIN_NOTIFY_REPUTATION:
+                # no notifications for low-rep accounts
+                return
+            processMentions(author_account, comment_body, op)
+            if op['parent_author']:
+                if op['parent_author'] != op['author']:
                     # no need to notify self of own comments
-                    return
-
-                # print('comment', op['author'], op['parent_author'])
-                title = 'Steemit'
-                body = '@%s replied to your post or comment' % (
-                    op['author']
-                )
-                url = 'https://steemit.com/@%s/recent-replies' % (
-                    op['parent_author']
-                )
-                profile = author_account.profile
-                pic = img_proxy_prefix + profile['profile_image'] \
-                    if profile and 'profile_image' in profile else ''
-                tnt_server.call(
-                    'notification_add',
-                    op['parent_author'],
-                    NTYPES['comment_reply'],
-                    title,
-                    body,
-                    url,
-                    pic
-                )
+                    title = 'Steemit'
+                    body = '@%s replied to your post or comment' % (op['author'])
+                    url = 'https://steemit.com/@%s/recent-replies' % (op['parent_author'])
+                    profile = author_account.profile
+                    pic = img_proxy_prefix + profile['profile_image'] if profile and 'profile_image' in profile else ''
+                    tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'], title, body, url, pic)
             else:
                 followers = getFollowers(author_account)
                 for follower in followers:
-                    tnt_server.call(
-                        'notification_add',
-                        follower,
-                        NTYPES['feed']
-                    )
-                processMentions(author_account, comment_body, op)
-                processed_posts[pkey] = True
+                    tnt_server.call('notification_add', follower, NTYPES['feed'])
 
     if op_type.startswith('transfer'):
         if op['from'] != op['to']:
@@ -208,52 +157,23 @@ def processOp(op_data):
             title = 'Steemit'
             body = 'you transfered %s to @%s' % (op['amount'], op['to'])
             url = 'https://steemit.com/@%s/transfers' % (op['from'])
-            tnt_server.call(
-                'notification_add',
-                op['from'],
-                NTYPES['send'],
-                title,
-                body,
-                url,
-                ''
-            )
+            tnt_server.call('notification_add', op['from'], NTYPES['send'], title, body, url, '')
             body = 'you received %s from @%s' % (op['amount'], op['from'])
             url = 'https://steemit.com/@%s/transfers' % (op['to'])
-            tnt_server.call(
-                'notification_add',
-                op['to'],
-                NTYPES['receive'],
-                title,
-                body,
-                url,
-                ''
-            )
-    if op_type == 'account_update' and (
-        'active' in op or 'owner' in op or 'posting' in op
-    ):
+            tnt_server.call('notification_add', op['to'], NTYPES['receive'], title, body, url, '')
+
+    if op_type == 'account_update' and ('active' in op or 'owner' in op or 'posting' in op):
         # print(json.dumps(op, indent=4))
         title = 'Steemit'
-        body = 'account @%s has been updated or password changed' % (
-            op['account']
-        )
+        body = 'account @%s has been updated or password changed' % (op['account'])
         url = 'https://steemit.com/@%s/permissions' % (op['account'])
-        tnt_server.call(
-            'notification_add',
-            op['account'],
-            NTYPES['account_update'],
-            title,
-            body,
-            url,
-            ''
-        )
+        tnt_server.call('notification_add', op['account'], NTYPES['account_update'], title, body, url, '')
+
     # if op_type == 'vote':
         # print('----', op['voter'], op['permlink'])
 
 
 def run():
-    # FIXME globals
-    global steem
-    global steem_space
     last_block = chain.info()['head_block_number']
     last_block_id_res = steem_space.select('last_block_id')
     if len(last_block_id_res) != 0:
@@ -282,20 +202,24 @@ def run():
 
 
 def main():
+    global steem
+    global tnt_server
+    global steem_space
+    global followers_space
+    global chain
+
     print('starting datafeed.py..')
     ws_connection = os.environ['WS_CONNECTION']
     print('Connecting to ', ws_connection)
     sys.stdout.flush()
-    global steem
-    steem = Steem(ws_connection)
-    global chain
-    chain = Blockchain(steem_instance=steem, mode='head')
 
-    print('Connecting to tarantool (datastore:3301)..')
-    sys.stdout.flush()
+    steem = Steem(ws_connection)
+    chain = Blockchain(steem_instance=steem, mode='head')
 
     while True:
         try:
+            print('Connecting to tarantool (datastore:3301)..')
+            sys.stdout.flush()
             tnt_server = tarantool.connect('datastore', 3301)
             steem_space = tnt_server.space('steem')
             followers_space = tnt_server.space('followers')
