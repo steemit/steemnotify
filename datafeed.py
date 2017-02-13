@@ -152,25 +152,26 @@ def processComment(op):
         return
     processMentions(author_account, comment_body, op)
     if op['parent_author']:
-        if op['parent_author'] != op['author']:
-            # no need to notify self of own comments
-            title = 'Steemit'
-            body = '@%s replied to your post or comment' % (op['author'])
-            url = 'https://steemit.com/@%s/recent-replies' % (
-                op['parent_author']
-            )
-            profile = author_account.profile
-            pic = img_proxy_prefix + profile['profile_image'] \
-                if profile and 'profile_image' in profile else ''
-            tnt_server.call(
-                'notification_add',
-                op['parent_author'],
-                NTYPES['comment_reply'],
-                title,
-                body,
-                url,
-                pic
-            )
+        if op['parent_author'] == op['author']:
+            return
+        # no need to notify self of own comments
+        title = 'Steemit'
+        body = '@%s replied to your post or comment' % (op['author'])
+        url = 'https://steemit.com/@%s/recent-replies' % (
+            op['parent_author']
+        )
+        profile = author_account.profile
+        pic = img_proxy_prefix + profile['profile_image'] \
+            if profile and 'profile_image' in profile else ''
+        tnt_server.call(
+            'notification_add',
+            op['parent_author'],
+            NTYPES['comment_reply'],
+            title,
+            body,
+            url,
+            pic
+        )
     else:
         followers = getFollowers(author_account)
         for follower in followers:
