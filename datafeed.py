@@ -15,18 +15,18 @@ import time
 MIN_NOTIFY_REPUTATION = 40
 
 NTYPES = {
-  'total': 0,
-  'feed': 1,
-  'reward': 2,
-  'send': 3,
-  'mention': 4,
-  'follow': 5,
-  'vote': 6,
-  'comment_reply': 7,
-  'post_reply': 8,
-  'account_update': 9,
-  'message': 10,
-  'receive': 11
+    'total': 0,
+    'feed': 1,
+    'reward': 2,
+    'send': 3,
+    'mention': 4,
+    'follow': 5,
+    'vote': 6,
+    'comment_reply': 7,
+    'post_reply': 8,
+    'account_update': 9,
+    'message': 10,
+    'receive': 11
 }
 
 # gloabal variables
@@ -47,7 +47,11 @@ def getPostKey(post):
                 len(post.meta['tags']) == 0:
             return None
 
-        return '/%s/@%s/%s' % (post.meta['tags'][0], post.author, post.permlink)
+        return '/%s/@%s/%s' % (
+            post.meta['tags'][0],
+            post.author,
+            post.permlink
+        )
     except PostDoesNotExist:
         return None
 
@@ -109,7 +113,118 @@ def processMentions(author_account, text, op):
         profile = author_account.profile
         pic = img_proxy_prefix + profile['profile_image'] \
             if profile and 'profile_image' in profile else ''
-        tnt_server.call('notification_add', mention[1:], NTYPES['mention'], title, body, url, pic)
+        tnt_server.call(
+            'notification_add',
+            mention[1:],
+            NTYPES['mention'],
+            title,
+            body,
+            url,
+            pic
+        )
+
+
+def processFollow(op):
+    op_json = json.loads(op['json'])
+    if not isinstance(op_json, list) or op_json[0] != 'follow':
+        return
+    addFollower(data['following'], data['follower'])
+    tnt_server.call(
+        'notification_add',
+        data['following'],
+        NTYPES['follow']
+    )
+
+
+def processComment(op):
+    comment_body = op['body']
+    if not comment_body or comment_body.startswith('@@ '):
+        return
+    post = Post(op, steem_instance=steem)
+    pkey = getPostKey(post)
+    # print('post: ', pkey)
+    if not pkey or pkey in processed_posts:
+        return
+    processed_posts[pkey] = True
+    author_account = Account(op['author'])
+    if author_account.rep < MIN_NOTIFY_REPUTATION:
+        # no notifications for low-rep accounts
+        return
+    processMentions(author_account, comment_body, op)
+    if op['parent_author']:
+        if op['parent_author'] != op['author']:
+            # no need to notify self of own comments
+            title = 'Steemit'
+            body = '@%s replied to your post or comment' % (op['author'])
+            url = 'https://steemit.com/@%s/recent-replies' % (
+                op['parent_author']
+            )
+            profile = author_account.profile
+            pic = img_proxy_prefix + profile['profile_image'] \
+                if profile and 'profile_image' in profile else ''
+            tnt_server.call(
+                'notification_add',
+                op['parent_author'],
+                NTYPES['comment_reply'],
+                title,
+                body,
+                url,
+                pic
+            )
+    else:
+        followers = getFollowers(author_account)
+        for follower in followers:
+            tnt_server.call('notification_add', follower, NTYPES['feed'])
+
+
+def processTransfer(op):
+    if op['from'] == op['to']:
+        return
+    # print(op_type, op['from'], op['to'])
+    title = 'Steemit'
+    body = 'you transfered %s to @%s' % (op['amount'], op['to'])
+    url = 'https://steemit.com/@%s/transfers' % (op['from'])
+    tnt_server.call(
+        'notification_add',
+        op['from'],
+        NTYPES['send'],
+        title,
+        body,
+        url,
+        ''
+    )
+    body = 'you received %s from @%s' % (op['amount'], op['from'])
+    url = 'https://steemit.com/@%s/transfers' % (op['to'])
+    tnt_server.call(
+        'notification_add',
+        op['to'],
+        NTYPES['receive'],
+        title,
+        body,
+        url,
+        ''
+    )
+
+
+def processAccountUpdate(op):
+    # print(json.dumps(op, indent=4))
+    if not ('active' in op or 'owner' in op or 'posting' in op):
+        return
+
+    title = 'Steemit'
+    body = 'account @%s has been updated or had its password changed' % (
+        op['account']
+    )
+    url = 'https://steemit.com/@%s/permissions' % (op['account'])
+    tnt_server.call(
+        'notification_add',
+        op['account'],
+        NTYPES['account_update'],
+        title,
+        body,
+        url,
+        ''
+    )
 
 
 def processOp(op_data):
@@ -117,60 +232,16 @@ def processOp(op_data):
     op = op_data[1]
 
     if op_type == 'custom_json' and op['id'] == 'follow':
-        op_json = json.loads(op['json'])
-        if isinstance(op_json, list) and op_json[0] == 'follow':
-            data = op_json[1]
-            addFollower(data['following'], data['follower'])
-            tnt_server.call('notification_add', data['following'], NTYPES['follow'])
+        processFollow(op)
 
     if op_type == 'comment':
-        comment_body = op['body']
-        if comment_body and not comment_body.startswith('@@ '):
-            post = Post(op, steem_instance=steem)
-            pkey = getPostKey(post)
-            # print('post: ', pkey)
-            if not pkey or pkey in processed_posts:
-                return
-            processed_posts[pkey] = True
-            author_account = Account(op['author'])
-            if author_account.rep < MIN_NOTIFY_REPUTATION:
-                # no notifications for low-rep accounts
-                return
-            processMentions(author_account, comment_body, op)
-            if op['parent_author']:
-                if op['parent_author'] != op['author']:
-                    # no need to notify self of own comments
-                    title = 'Steemit'
-                    body = '@%s replied to your post or comment' % (op['author'])
-                    url = 'https://steemit.com/@%s/recent-replies' % (op['parent_author'])
-                    profile = author_account.profile
-                    pic = img_proxy_prefix + profile['profile_image'] if profile and 'profile_image' in profile else ''
-                    tnt_server.call('notification_add', op['parent_author'], NTYPES['comment_reply'], title, body, url, pic)
-            else:
-                followers = getFollowers(author_account)
-                for follower in followers:
-                    tnt_server.call('notification_add', follower, NTYPES['feed'])
+        processComment(op)
 
     if op_type.startswith('transfer'):
-        if op['from'] != op['to']:
-            # print(op_type, op['from'], op['to'])
-            title = 'Steemit'
-            body = 'you transfered %s to @%s' % (op['amount'], op['to'])
-            url = 'https://steemit.com/@%s/transfers' % (op['from'])
-            tnt_server.call('notification_add', op['from'], NTYPES['send'], title, body, url, '')
-            body = 'you received %s from @%s' % (op['amount'], op['from'])
-            url = 'https://steemit.com/@%s/transfers' % (op['to'])
-            tnt_server.call('notification_add', op['to'], NTYPES['receive'], title, body, url, '')
+        processTransfer(op)
 
-    if op_type == 'account_update' and ('active' in op or 'owner' in op or 'posting' in op):
-        # print(json.dumps(op, indent=4))
-        title = 'Steemit'
-        body = 'account @%s has been updated or password changed' % (op['account'])
-        url = 'https://steemit.com/@%s/permissions' % (op['account'])
-        tnt_server.call('notification_add', op['account'], NTYPES['account_update'], title, body, url, '')
-
-    # if op_type == 'vote':
-        # print('----', op['voter'], op['permlink'])
+    if op_type == 'account_update':
+        processAccountUpdate(op)
 
 
 def run():
