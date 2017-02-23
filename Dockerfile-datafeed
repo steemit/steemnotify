@@ -1,0 +1,15 @@
+FROM python:3.5
+
+RUN pip3 install steem tarantool
+
+ENV STEEM_USER   steem
+ENV STEEM_HOME   /home/steem
+
+RUN useradd -m $STEEM_USER && chown -R $STEEM_USER $STEEM_HOME
+
+USER $STEEM_USER
+WORKDIR $STEEM_HOME
+
+COPY datafeed.py .
+
+CMD ["python", "./datafeed.py"]
