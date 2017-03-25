@@ -7,7 +7,7 @@ docker-compose build
 ### Run
 
 ```bash
-WS_CONNECTION='wss://this.piston.rocks' docker-compose up
+docker-compose up
 ```
 
 ### Use

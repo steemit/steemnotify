@@ -1,16 +1,16 @@
 #!/usr/bin/env python
-from contextlib import suppress
-from steem import Steem
-from steem.account import Account
-from steem.blockchain import Blockchain
-from steem.exceptions import PostDoesNotExist
-from steem.post import Post
 import json
 import os
 import re
 import sys
-import tarantool
 import time
+from contextlib import suppress
+
+import tarantool
+from steem.account import Account
+from steem.blockchain import Blockchain
+from steem.post import Post
+from steembase.exceptions import PostDoesNotExist
 
 MIN_NOTIFY_REPUTATION = 40
 
@@ -30,12 +30,11 @@ NTYPES = {
 }
 
 # gloabal variables
-steem = None
 tnt_server = None
 steem_space = None
 followers_space = None
 chain = None
-img_proxy_prefix = os.environ['IMG_PROXY_PREFIX']
+img_proxy_prefix = os.getenv('IMG_PROXY_PREFIX')
 processed_posts = {}
 
 
@@ -88,7 +87,7 @@ def addFollower(account_name, follower):
 
 def processMentions(author_account, text, op):
     mentions = re.findall('\@[\w\d.-]+', text)
-    if (len(mentions) == 0):
+    if len(mentions) == 0:
         return
     # print('\nop: ', op)
     if op['parent_author']:
@@ -104,7 +103,7 @@ def processMentions(author_account, text, op):
         url = 'https://steemit.com/@%s/%s' % (op['author'], op['permlink'])
 
     for mention in set(mentions):
-        if (mention == op['author']):
+        if mention == op['author']:
             # don't notify on self-mentions
             continue
         # print('--- mention: ', what, url, mention, mention[1:])
@@ -141,7 +140,7 @@ def processComment(op):
     comment_body = op['body']
     if not comment_body or comment_body.startswith('@@ '):
         return
-    post = Post(op, steem_instance=steem)
+    post = Post(op)
     pkey = getPostKey(post)
     # print('post: ', pkey)
     if not pkey or pkey in processed_posts:
@@ -228,9 +227,8 @@ def processAccountUpdate(op):
     )
 
 
-def processOp(op_data):
-    op_type = op_data[0]
-    op = op_data[1]
+def processOp(op):
+    op_type = op['type']
 
     if op_type == 'custom_json' and op['id'] == 'follow':
         processFollow(op)
@@ -254,39 +252,28 @@ def run():
     else:
         steem_space.insert(('last_block_id', last_block))
 
-    for block in chain.blocks(start=last_block):
-        # print(json.dumps(block, indent=4))
+    for op in chain.replay(start_block=last_block):
         if last_block % 10 == 0:
             print('processing block', last_block)
             sys.stdout.flush()
-        for t in block['transactions']:
-            for op in t['operations']:
-                # if op[0] not in ['comment', 'vote', 'custom_json',
-                # 'pow2', 'account_create', 'limit_order_create',
-                # 'limit_order_cancel', 'feed_publish',
-                # 'comment_options', 'account_witness_vote',
-                # 'account_update'] and not op[0].startswith('transfer'):
-                #     print('---------', op[0])
-                #     print(json.dumps(op[1], indent=4))
-                processOp(op)
-        last_block += 1
-        steem_space.update('last_block_id', [('=', 1, last_block)])
+
+        processOp(op)
+
+        if last_block != op['block_num']:
+            last_block = op['block_num']
+            steem_space.update('last_block_id', [('=', 1, last_block)])
 
 
 def main():
-    global steem
     global tnt_server
     global steem_space
     global followers_space
     global chain
 
     print('starting datafeed.py..')
-    ws_connection = os.environ['WS_CONNECTION']
-    print('Connecting to ', ws_connection)
     sys.stdout.flush()
 
-    steem = Steem(ws_connection)
-    chain = Blockchain(steem_instance=steem, mode='head')
+    chain = Blockchain(mode='head')
 
     while True:
         try:
