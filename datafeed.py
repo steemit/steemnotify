@@ -253,9 +253,11 @@ def run():
         steem_space.insert(('last_block_id', last_block))
 
     for op in chain.replay(start_block=last_block):
-        if last_block % 10 == 0:
-            print('processing block', last_block)
-            sys.stdout.flush()
+        if op['block_num'] != last_block:
+            last_block = op['block_num']
+            if last_block % 10 == 0:
+                print('processing block', last_block)
+                sys.stdout.flush()
 
         processOp(op)
 
