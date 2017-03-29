@@ -1,6 +1,6 @@
 FROM python:3.5.3
 
-RUN pip3 install steem==0.17.0 tarantool
+RUN pip3 install steem==0.17.1 tarantool
 
 ENV STEEM_USER   steem
 ENV STEEM_HOME   /home/steem
