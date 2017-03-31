@@ -40,14 +40,13 @@ processed_posts = {}
 
 def getPostKey(post):
     try:
-        if not post.meta or \
-                not isinstance(post.meta, dict) or \
-                'tags' not in post.meta or \
-                len(post.meta['tags']) == 0:
+        if post.parent_author:
+            return post.identifier
+        if not 'tags' in post or len(post['tags']) == 0:
             return None
 
         return '/%s/@%s/%s' % (
-            post.meta['tags'][0],
+            post['tags'][0],
             post.author,
             post.permlink
         )
@@ -141,6 +140,7 @@ def processComment(op):
     if not comment_body or comment_body.startswith('@@ '):
         return
     post = Post(op)
+    post.refresh()
     pkey = getPostKey(post)
     # print('post: ', pkey)
     if not pkey or pkey in processed_posts:
