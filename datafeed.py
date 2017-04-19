@@ -139,10 +139,15 @@ def processComment(op):
     comment_body = op['body']
     if not comment_body or comment_body.startswith('@@ '):
         return
-    post = Post(op)
-    post.refresh()
+    post = None
+    try:
+        post = Post(op)
+        post.refresh()
+    except PostDoesNotExist:
+        print('Warning! Post not found: ', op)
+        return
     pkey = getPostKey(post)
-    # print('post: ', pkey)
+    print('post: ', pkey)
     if not pkey or pkey in processed_posts:
         return
     processed_posts[pkey] = True
@@ -245,14 +250,14 @@ def processOp(op):
 
 def run():
     last_block = chain.info()['head_block_number']
-    last_block_id_res = steem_space.select('last_block_id')
-    if len(last_block_id_res) != 0:
-        last_block = last_block_id_res[0][1]
-        print('last_block', last_block)
-    else:
-        steem_space.insert(('last_block_id', last_block))
+    # last_block_id_res = steem_space.select('last_block_id')
+    # if len(last_block_id_res) != 0:
+    #     last_block = last_block_id_res[0][1]
+    #     print('last_block', last_block)
+    # else:
+    #     steem_space.insert(('last_block_id', last_block))
 
-    for op in chain.replay(start_block=last_block):
+    for op in chain.history(start_block=last_block):
         if op['block_num'] != last_block:
             last_block = op['block_num']
             if last_block % 10 == 0:
