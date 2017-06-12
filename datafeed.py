@@ -147,7 +147,7 @@ def processComment(op):
         print('Warning! Post not found: ', op)
         return
     pkey = getPostKey(post)
-    print('post: ', pkey)
+    # print('post: ', pkey)
     if not pkey or pkey in processed_posts:
         return
     processed_posts[pkey] = True
